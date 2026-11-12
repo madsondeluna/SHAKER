@@ -1,0 +1,8 @@
+# Origin and checksum of every bundled force-field file. `shaker check` compares these hashes.
+origin: https://github.com/madsondeluna/AMP-evo-MD (user/base/insert_peptide), commit d5fcae24c5abbfc4802986bb8e3ee2bdfba0b73b
+retrieved: 2026-11-12
+files:
+  martini_v3.0.0.itp: 0ecbf0ff334b2ec21dc5e3151aca42167b977bc2aed41eb2a44bd8c997754894
+  martini_v3.0.0_ions_v1.itp: c7ec26bcd272f0e127d67515097e8cc88979e7e0cf5373baa0f410edeb125e68
+  martini_v3.0.0_phospholipids_v1.itp: 6e9399933b90c9b75ce829cc7cc384f306e09a61bd262ace0314e9af22537ef9
+  martini_v3.0.0_solvents_v2.itp: 43a6c2a1d94f1ea29f4dc9098d06ac6e5424f16cf3e5844ee8940b64f393cc4d

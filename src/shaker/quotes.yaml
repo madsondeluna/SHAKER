@@ -1,0 +1,33 @@
+# One quote is printed at the end of each stage, on a terminal only.
+# Entries with an `author` are real quotations; add the source when adding one.
+check:
+  - text: "Same versions, same physics. Different versions, different paper."
+  - text: "Trust the hash, not the file name."
+  - text: "A clean bar before the first drink."
+plan:
+  - text: "Count the glasses before you pour."
+  - text: "Every list in the YAML is a multiplication sign."
+  - text: "All models are wrong, but some are useful."
+    author: George E. P. Box
+    source: "Box, G. E. P. (1979), Robustness in the strategy of scientific model building"
+prepare:
+  - text: "Every helix is ideal until it meets a membrane."
+  - text: "Four atoms walk into a bead."
+  - text: "Phi minus 57, psi minus 47, no questions asked."
+build:
+  - text: "Shaken, not stirred. Definitely not pre-assembled."
+  - text: "Entropy was high when I left it. That is the point."
+  - text: "One hundred boxes, zero bilayers. Give it time."
+  - text: "No two pours are the same. The seed remembers each one."
+lipids:
+  - text: "Heads up, tails down. Eventually."
+  - text: "113 ways to say amphiphile."
+run:
+  - text: "Lipids know what to do. We just wait and count."
+  - text: "A pore is just a bilayer having second thoughts."
+analyze:
+  - text: "One replica is an anecdote. One hundred is a distribution."
+  - text: "Unclassified is also a result."
+failure:
+  - text: "It blew up. The log knows why."
+  - text: "Spilled. Check the log before the next round."

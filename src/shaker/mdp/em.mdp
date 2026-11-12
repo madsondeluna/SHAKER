@@ -1,0 +1,19 @@
+; SHAKER energy minimization of a randomly mixed box (Martini 3)
+define                   = -DFLEXIBLE
+integrator               = steep
+nsteps                   = 10000
+emtol                    = 1000
+emstep                   = 0.01
+
+cutoff-scheme            = Verlet
+nstlist                  = 20
+pbc                      = xyz
+verlet-buffer-tolerance  = 0.005
+
+coulombtype              = reaction-field
+rcoulomb                 = 1.1
+epsilon_r                = 15
+epsilon_rf               = 0
+vdw_type                 = cutoff
+vdw-modifier             = Potential-shift-verlet
+rvdw                     = 1.1
