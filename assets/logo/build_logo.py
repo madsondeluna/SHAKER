@@ -11,7 +11,6 @@ from pathlib import Path
 import wordmark
 
 HERE = Path(__file__).resolve().parent
-SLOGAN = "SHAKEN CHAOS.  SELF-SERVED ORDER."
 INK = {"light": ("#2A211B", "#6B625A"), "dark": ("#F2ECE6", "#A69B92")}
 HEIGHT, GAP = 300, 44
 FONT = "'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -26,13 +25,18 @@ def build(theme):
     x = mark_width + GAP
     ink, muted = INK[theme]
     top = (HEIGHT - wordmark.HEIGHT - 44) / 2
+    # the slogan spans exactly the width of the wordmark: every letter gets its own position
+    k = wordmark.WIDTH / wordmark.SLOGAN_WIDTH
+    size = wordmark.SLOGAN_SIZE * k
+    spans = "".join(f'<tspan x="{x + start * k:.1f}">{char}</tspan>'
+                    for char, start in zip(wordmark.SLOGAN, wordmark.SLOGAN_STARTS) if char != " ")
     (HERE / f"logo-{theme}.svg").write_text(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {x + wordmark.WIDTH + 24:.0f} {HEIGHT}" role="img" '
         'aria-label="SHAKER: Shaken chaos. Self-served order.">\n'
         f'<svg x="0" y="0" width="{mark_width:.1f}" height="{HEIGHT}" viewBox="{view}">{inner}</svg>\n'
         f'<path transform="translate({x:.0f} {top:.0f})" d="{wordmark.PATH}" fill="{ink}"/>\n'
-        f'<text x="{x + 2:.0f}" y="{top + wordmark.HEIGHT + 40:.0f}" font-family="{FONT}" font-size="13.5" '
-        f'letter-spacing="3.7" fill="{muted}">{SLOGAN}</text>\n</svg>\n'
+        f'<text y="{top + wordmark.HEIGHT + 42:.0f}" font-family="{FONT}" font-size="{size:.2f}" '
+        f'fill="{muted}">{spans}</text>\n</svg>\n'
     )
 
 

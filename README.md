@@ -7,9 +7,7 @@
 
 Shaken chaos. Self-served order.
 
-**SHAKER** (Stochastic Homogeneous-mixture Assembly Kit for Ensemble Replicas) builds randomly mixed boxes of water, ions, lipids and helical antimicrobial peptides (AMPs) and simulates their self-assembly with Martini 3 in GROMACS. Every box comes from a seed, every condition gets many replicas, and the distribution of outcomes across replicas is the result.
-
-Madson A. de Luna-Aragão. Programa Interunidades de Pós-Graduação em Bioinformática, Universidade Federal de Minas Gerais (UFMG), Brasil. Centre National de la Recherche Scientifique (CNRS), Institut de Biologie et Chimie des Protéines (IBCP), Lyon, França. madsondeluna@gmail.com, https://madsondeluna.com, https://github.com/madsondeluna, https://www.linkedin.com/in/madsonaragao/. Source: https://github.com/madsondeluna/SHAKER
+**SHAKER** (Stochastic High-throughput Assembly Kit for Ensemble Replicas) builds randomly mixed boxes of water, ions, lipids and helical antimicrobial peptides (AMPs) and simulates their self-assembly with Martini 3 in GROMACS. Every box comes from a seed, every condition gets many replicas, and the distribution of outcomes across replicas is the result.
 
 <p align="center">
   <img src="assets/screens/screen-help.svg" alt="shaker with no arguments: banner and help" width="760">
@@ -119,6 +117,7 @@ flowchart LR
 | `run --dry-run` | list what would run | nothing |
 | `run --backend slurm-array` | job array script and task list | `slurm/<stamp>.sbatch`, `slurm/<stamp>.tasks` |
 | `status` | replicas built, equilibrated, assembled and failed per condition, mean ns/day | nothing |
+| `serve` | local web interface that re-reads the campaign every 3 s | nothing |
 | `lipids list` | lipid library | nothing |
 | `lipids show <lipid>` | beads and template of one lipid | nothing |
 
@@ -148,6 +147,9 @@ Precedence: flag, then environment variable, then default.
 | `--replicas <n>` | `build` | only the first n replicas of each condition |
 | `--dry-run` | `build` | list, write nothing |
 | `--head <group>` | `lipids list` | PC, PE, PS, PA or PG |
+| `--port <n>` | `serve` | port, default 8765, 0 picks a free one |
+| `--host <address>` | `serve` | address to listen on, default 127.0.0.1 |
+| `--no-open` | `serve` | do not open the browser |
 
 | `run` flag | Default | Meaning |
 |---|---|---|
@@ -297,7 +299,7 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 |---|---|
 | Executes | `martinize2`, `gmx grompp`, `gmx mdrun`, `gmx --version`, `sbatch` only with `--submit` |
 | Writes | only inside the campaign directory |
-| Sends | nothing over the network |
+| Sends | nothing over the network. `serve` listens on 127.0.0.1 only, unless `--host` says otherwise, and never writes |
 
 ## Status
 
@@ -313,7 +315,8 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | SLURM job array | `shaker run --backend slurm-array` | implemented, script generation tested, not submitted to a cluster |
 | Bilayer alignment and semi-isotropic production | `shaker run` | not implemented |
 | Analysis, classification, renders | `shaker analyze` | not implemented |
-| Local interface | `shaker serve` | not implemented |
+| Local interface: overview, conditions, replicas, bead viewer, events, peptides | `shaker serve` | implemented |
+| Outcome tables and plots in the interface | `shaker serve` | not implemented, needs `analyze` |
 
 ## Sources
 
@@ -342,6 +345,33 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | `assets/logo/` | logo and mark (SVG and PNG, light and dark), source illustration, build scripts |
 | `assets/screens/` | terminal screens of the CLI and their generator |
 | `requirements.lock` | pinned dependency versions |
+
+## Interface
+
+```bash
+shaker serve
+```
+
+| View | Content |
+|---|---|
+| Overview | totals, measured ns/day, time and disk estimates, one progress bar per condition |
+| Progress | steps done and left with the next command, replicas running now with the percentage of their stage, stages by condition, pace and hours left, output files by kind and size, result tables, free disk |
+| Condition | one cell per replica, coloured and lettered by state |
+| Replica | stages with time and ns/day, composition, events, files, and a bead viewer of the latest frame |
+| Peptides | descriptors from `results/peptides.csv` |
+| Events | the campaign log, newest first |
+
+| Replica state | Meaning |
+|---|---|
+| Not built | no box yet |
+| Built | `box.gro` exists |
+| Minimized | `em.gro` exists |
+| Running | a stage is in progress |
+| Paused at wall time | stopped by `--maxh`, continues on the next `shaker run` |
+| Assembled | the last stage finished |
+| Failed | a stage could not finish; the reason is on the replica page |
+
+The viewer draws every bead as a sphere, orthographic, with side, top and front views, drag or arrow keys to rotate, and water off by default. The page uses the logo palette, in light and dark.
 
 ## Logo
 

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "shaker"
 version = "0.1.0"
-description = "Stochastic Homogeneous-mixture Assembly Kit for Ensemble Replicas"
+description = "Stochastic High-throughput Assembly Kit for Ensemble Replicas"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.26",

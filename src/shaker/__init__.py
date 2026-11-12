@@ -1,4 +1,4 @@
-"""SHAKER: Stochastic Homogeneous-mixture Assembly Kit for Ensemble Replicas."""
+"""SHAKER: Stochastic High-throughput Assembly Kit for Ensemble Replicas."""
 
 from pathlib import Path
 

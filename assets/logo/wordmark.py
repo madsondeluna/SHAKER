@@ -23,3 +23,10 @@ BAND_PATH = (
     "M389.609 33.9839L402.793 2.4959H411.497L389.609 49.7919L367.721 2.4959H376.425L389.609 33.9839Z"
     "M431.876 12.9919V5.8239L449.732 1.7919V47.2959H442.244V10.1119L431.876 12.9919Z"
 )
+
+# The slogan set to the width of the wordmark: where each character starts, measured in the
+# Figma identity file with IBM Plex Sans Regular at 40 px and even spacing. Total width 1336.
+SLOGAN = "SHAKEN CHAOS. SELF-SERVED ORDER."
+SLOGAN_SIZE, SLOGAN_WIDTH = 40, 1336
+SLOGAN_STARTS = (0, 44, 92, 138, 183, 227, 276, 305, 350, 399, 445, 493, 536, 567, 597, 640, 684,
+                 724, 767, 803, 846, 889, 935, 979, 1022, 1069, 1099, 1147, 1193, 1240, 1284, 1330)

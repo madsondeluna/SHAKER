@@ -34,6 +34,7 @@ WORKFLOW = [
 ]
 INSPECT = [
     ("shaker status", "progress of each condition"),
+    ("shaker serve", "local interface, updated live"),
     ("shaker lipids list --head PG", "browse the lipid library"),
     ("shaker lipids show POPG", "beads and template of one lipid"),
 ]
@@ -217,6 +218,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="slurm: extra #SBATCH line content (repeatable)")
     g.add_argument("--submit", action="store_true",
                    help="slurm: call sbatch (default: only write the script)")
+
+    p = _subparser(sub, "serve", "open the local interface, updated live",
+                   ["shaker serve", "shaker serve --port 9000 --no-open"], common)
+    p.add_argument("--port", type=int, default=8765, metavar="<n>", help="port (default: 8765, 0 picks a free one)")
+    p.add_argument("--host", default="127.0.0.1", metavar="<address>",
+                   help="address to listen on (default: 127.0.0.1, this machine only)")
+    p.add_argument("--no-open", action="store_true", help="do not open the browser")
 
     _subparser(sub, "status", "show how many boxes each condition has",
                ["shaker status", "shaker status --plain"], common)
@@ -693,6 +701,30 @@ def cmd_run(args):
     return 0
 
 
+def cmd_serve(args):
+    import webbrowser
+
+    from .app import serve
+
+    _load(args)                                   # fail early, with the usual message, on a bad config
+    def ready(url):
+        if args.json:
+            ui.emit({"url": url}, as_json=True)
+        else:
+            sys.stdout.write(url + "\n"); sys.stdout.flush()
+        if not args.quiet:
+            ui.ok(f"serving {_config_path(args)} at {url}")
+            ui.err.print("  [muted]stop with[/] [accent]Ctrl-C[/]", highlight=False)
+        if not args.no_open and ui.env.stderr_tty:
+            webbrowser.open(url)
+    try:
+        serve(_config_path(args), host=args.host, port=args.port, ready=ready)
+    except OSError as exc:
+        raise ShakerError(f"cannot listen on {args.host}:{args.port}: {exc.strerror or exc}",
+                          "pass --port <n> to use another port") from None
+    return 0
+
+
 def cmd_status(args):
     from . import campaign as ops
 
@@ -754,7 +786,7 @@ def cmd_lipids(args):
 
 
 COMMAND_TABLE = {"init": cmd_init, "check": cmd_check, "plan": cmd_plan, "prepare": cmd_prepare,
-                 "build": cmd_build, "run": cmd_run, "status": cmd_status, "lipids": cmd_lipids}
+                 "build": cmd_build, "run": cmd_run, "serve": cmd_serve, "status": cmd_status, "lipids": cmd_lipids}
 
 
 def main(argv=None) -> int:

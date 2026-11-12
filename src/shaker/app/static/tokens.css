@@ -1,0 +1,158 @@
+/* SHAKER identity tokens. Every value the interface uses is declared here. */
+:root {
+  color-scheme: light;
+  --surface: #FBF8F5;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #F3EEE8;
+  --ink: #2A211B;
+  --muted: #6B625A;
+  --line: #E2D8CF;
+  --line-strong: #CFC2B6;
+  --rose: #E0457F;
+  --coral: #E5484D;
+  --orange: #E07B2E;
+  --amber: #B97F00;
+  --olive: #62742A;
+  --water: #7DB3D9;
+  --glass: #2F74B5;
+  --metal: #9A9189;
+  --tail: #DDD2C4;
+  --glycerol: #B98E72;
+  --sidechain: #F4B67E;
+
+  /* replica states: each also carries a letter, never colour alone */
+  --state-unbuilt: #E2D8CF;
+  --state-built: #C8D9E8;
+  --state-equilibrating: #7DB3D9;
+  --state-running: #E07B2E;
+  --state-paused: #B97F00;
+  --state-assembled: #62742A;
+  --state-failed: #E5484D;
+  --on-state: #FFFFFF;
+  --on-state-pale: #2A211B;
+
+  --font-display: "Jost", "Futura", "Avenir Next", "Century Gothic", sans-serif;
+  --font-text: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-11: 0.6875rem;
+  --text-12: 0.75rem;
+  --text-13: 0.8125rem;
+  --text-15: 0.9375rem;
+  --text-20: 1.25rem;
+  --text-28: 1.75rem;
+  --text-40: 2.5rem;
+  --leading-tight: 1.15;
+  --leading-text: 1.5;
+  --tracking-display: 0.22em;
+  --tracking-label: 0.08em;
+  --tracking-caps: 0.18em;
+  --tracking-wordmark: 0.34em;
+
+  --space-4: 0.25rem;
+  --space-8: 0.5rem;
+  --space-12: 0.75rem;
+  --space-16: 1rem;
+  --space-24: 1.5rem;
+  --space-48: 3rem;
+  --space-96: 6rem;
+
+  --radius-surface: 6px;
+  --radius-field: 4px;
+  --radius-mark: 2px;
+  --radius-full: 999px;
+  --radius-bead: 50%;
+  --border: 1px;
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+
+  --hit-min: 24px;
+  --hit-touch: 44px;
+  --cell: 30px;
+  --bar: 4px;
+  --shell: 68rem;
+  --viewer-height: 26rem;
+  --logo-height: 2.75rem;
+  --fact-min: 9.5rem;
+  --shine: 22%;
+  --hairline: 1px;
+  --progress-min: 9rem;
+  --truncate: 28rem;
+  --underline-offset: 0.2em;
+  --rule: 1px;
+
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode="light"]) {
+    color-scheme: dark;
+    --surface: #181412;
+    --surface-raised: #221D1A;
+    --surface-sunken: #120F0D;
+    --ink: #F2ECE6;
+    --muted: #A69B92;
+    --line: #3A322D;
+    --line-strong: #52473F;
+    --rose: #FF7EB6;
+    --coral: #FF6B6B;
+    --orange: #FF9F5A;
+    --amber: #FFD166;
+    --olive: #A4B85A;
+    --water: #8CC6EE;
+    --glass: #6FB1EE;
+    --metal: #6E645C;
+    --tail: #8C8178;
+    --glycerol: #C9A58A;
+    --sidechain: #FFC99C;
+    --state-unbuilt: #3A322D;
+    --state-built: #3E5669;
+    --state-equilibrating: #5F9CC8;
+    --state-running: #FF9F5A;
+    --state-paused: #FFD166;
+    --state-assembled: #A4B85A;
+    --state-failed: #FF6B6B;
+    --on-state: #181412;
+    --on-state-pale: #F2ECE6;
+  }
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --surface: #181412;
+  --surface-raised: #221D1A;
+  --surface-sunken: #120F0D;
+  --ink: #F2ECE6;
+  --muted: #A69B92;
+  --line: #3A322D;
+  --line-strong: #52473F;
+  --rose: #FF7EB6;
+  --coral: #FF6B6B;
+  --orange: #FF9F5A;
+  --amber: #FFD166;
+  --olive: #A4B85A;
+  --water: #8CC6EE;
+  --glass: #6FB1EE;
+  --metal: #6E645C;
+  --tail: #8C8178;
+  --glycerol: #C9A58A;
+  --sidechain: #FFC99C;
+  --state-unbuilt: #3A322D;
+  --state-built: #3E5669;
+  --state-equilibrating: #5F9CC8;
+  --state-running: #FF9F5A;
+  --state-paused: #FFD166;
+  --state-assembled: #A4B85A;
+  --state-failed: #FF6B6B;
+  --on-state: #181412;
+  --on-state-pale: #F2ECE6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+  }
+}
