@@ -1,6 +1,6 @@
 """SHAKER's own marks on top of the vendored ui module: the glass, the slogan, the bar vocabulary."""
 
-SLOGAN = "Shaken, not stirred. From chaos to membrane, one seed at a time."
+SLOGAN = "Shaken chaos. Self-served order."
 TAGLINE = "reproducible Martini 3 self-assembly ensembles that reveal how AMPs act"
 
 # A martini glass with an olive on a pick, six rows tall to stand beside the block letters.

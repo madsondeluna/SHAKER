@@ -1,16 +1,18 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
-    <img src="docs/logo-light.svg" alt="SHAKER: from chaos to membrane, one seed at a time" width="620">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo-dark.svg">
+    <img src="assets/logo/logo-light.svg" alt="SHAKER: Shaken chaos. Self-served order." width="760">
   </picture>
 </p>
+
+Shaken chaos. Self-served order.
 
 **SHAKER** (Stochastic Homogeneous-mixture Assembly Kit for Ensemble Replicas) builds randomly mixed boxes of water, ions, lipids and helical antimicrobial peptides (AMPs) and simulates their self-assembly with Martini 3 in GROMACS. Every box comes from a seed, every condition gets many replicas, and the distribution of outcomes across replicas is the result.
 
 Madson A. de Luna-Aragão. Programa Interunidades de Pós-Graduação em Bioinformática, Universidade Federal de Minas Gerais (UFMG), Brasil. Centre National de la Recherche Scientifique (CNRS), Institut de Biologie et Chimie des Protéines (IBCP), Lyon, França. madsondeluna@gmail.com, https://madsondeluna.com, https://github.com/madsondeluna, https://www.linkedin.com/in/madsonaragao/. Source: https://github.com/madsondeluna/SHAKER
 
 <p align="center">
-  <img src="docs/screen-help.svg" alt="shaker with no arguments: banner and help" width="760">
+  <img src="assets/screens/screen-help.svg" alt="shaker with no arguments: banner and help" width="760">
 </p>
 
 ## Contents
@@ -84,7 +86,7 @@ shaker run --jobs 4 --threads 4 --mdrun-args "-nb gpu -bonded gpu"
 After editing the source, reinstall with `uv pip install --python .venv/bin/python --reinstall-package shaker --no-deps .`
 
 <p align="center">
-  <img src="docs/screen-plan.svg" alt="shaker plan" width="760">
+  <img src="assets/screens/screen-plan.svg" alt="shaker plan" width="760">
 </p>
 
 ## Pipeline
@@ -336,5 +338,41 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | `src/shaker/mdp/` | run parameter templates |
 | `src/shaker/ui.py`, `brand.py`, `quotes.yaml` | terminal output, palette, glass, quotes |
 | `tests/` | 63 tests |
-| `docs/` | background notes, logo and screen generators |
+| `docs/` | background notes |
+| `assets/logo/` | logo and mark (SVG and PNG, light and dark), source illustration, build scripts |
+| `assets/screens/` | terminal screens of the CLI and their generator |
 | `requirements.lock` | pinned dependency versions |
+
+## Logo
+
+| File | Content |
+|---|---|
+| `assets/logo/logo-light.svg`, `logo-dark.svg` | mark, wordmark and slogan, for light and dark pages |
+| `assets/logo/mark-light.svg`, `mark-dark.svg` | the drawing alone |
+| `assets/logo/png/` | PNG exports: logos at 2000 px, marks at 1600 px, `mark-512.png` square |
+| `assets/logo/source/illustration.png` | base illustration, drawn in the Figma identity file |
+| `assets/logo/build_mark.py` | traces the illustration and places the molecules |
+| `assets/logo/build_logo.py` | adds the wordmark and the slogan |
+| `assets/logo/wordmark.py` | SHAKER in Jost Light, as outlines |
+
+| Element | Meaning |
+|---|---|
+| Blue bead | Martini water, one bead for four molecules |
+| Red or pink head, tan glycerol bead, two tails of three beads | coarse-grained phospholipid |
+| Orange bead helix | peptide, backbone beads with side chains |
+| Shaker | the random mixture a simulation starts from |
+| Glass | the bilayer it becomes, with a peptide across it |
+
+```bash
+uv pip install --python .venv/bin/python ".[brand]"
+```
+
+```bash
+.venv/bin/python assets/logo/build_mark.py
+```
+
+```bash
+.venv/bin/python assets/logo/build_logo.py
+```
+
+Design file: https://www.figma.com/design/YhNOfQHwZ0Zce3WPtnYeoS

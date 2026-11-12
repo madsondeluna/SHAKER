@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+brand = ["vtracer>=0.6", "pillow>=10", "scipy>=1.11", "numpy>=1.26"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/shaker"]

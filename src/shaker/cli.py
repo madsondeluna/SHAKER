@@ -314,7 +314,7 @@ def _finish(args, stage, summary):
 
 def _splash():
     """Bare `shaker` on a terminal: the glass beside the name, then the help."""
-    ui.banner("SHAKER", brand.SLOGAN, mark=brand.glass(ui.env.unicode),
+    ui.banner("SHAKER", mark=brand.glass(ui.env.unicode), rule=False,
               mark_colours=brand.glass_colours(ui.theme["accent2"], ui.theme["teal"]))
     ui.err.print()
     _print_help()
@@ -350,7 +350,8 @@ def _print_help():
         return table
 
     out = ui.console
-    out.print(Text.assemble(("shaker", "accent"), ("  " + TAGLINE, "muted")))
+    out.print(Text(TAGLINE, style="muted"))
+    out.print()
     out.print(Text.assemble(("usage  ", "muted"), "shaker ", ("<command>", "accent2"),
                             (" [options]", "muted")))
 

@@ -18,11 +18,14 @@ build:
   - text: "Shaken, not stirred. Definitely not pre-assembled."
   - text: "Entropy was high when I left it. That is the point."
   - text: "One hundred boxes, zero bilayers. Give it time."
+  - text: "Shake. Assemble. Repeat."
   - text: "No two pours are the same. The seed remembers each one."
 lipids:
   - text: "Heads up, tails down. Eventually."
   - text: "113 ways to say amphiphile."
 run:
+  - text: "Membranes, self-served."
+  - text: "Order from chaos, by the hundred."
   - text: "Lipids know what to do. We just wait and count."
   - text: "A pore is just a bilayer having second thoughts."
 analyze:

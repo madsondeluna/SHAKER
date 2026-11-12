@@ -411,7 +411,7 @@ def _gradient_block(lines: Sequence[str], phase: float, sweep: float | None = No
 
 def banner(title: str, slogan: str = "", options: Sequence[tuple[str, str]] = (),
            reveal_ms: int = 1200, fps: int = 30, mark: Sequence[str] = (),
-           mark_colours: dict | None = None) -> None:
+           mark_colours: dict | None = None, rule: bool = True) -> None:
     """Animated banner: the title wipes in, a highlight sweeps across it twice,
     then it settles into the static gradient. Slogan and options follow.
 
@@ -469,7 +469,8 @@ def banner(title: str, slogan: str = "", options: Sequence[tuple[str, str]] = ()
         pad = max(len(label) for label, _ in options)
         for label, description in options:
             err.print(f"  [accent]{label:<{pad}}[/]  [muted]{description}[/]")
-    err.print(gradient_rule())
+    if rule:
+        err.print(gradient_rule())
 
 
 class _GradientSpinner(ProgressColumn):
