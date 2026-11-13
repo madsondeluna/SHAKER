@@ -308,7 +308,8 @@ def status(campaign: Campaign) -> list:
             speed = state.get("stages", {}).get("assembly", {}).get("ns_per_day")
             if speed:
                 speeds.append(speed)
-        rows.append({"condition": c.id, "peptide": c.peptide, "membrane": c.membrane,
+        rows.append({"condition": c.id, "peptide": c.peptide, "round": c.round_name,
+                     "membrane": c.membrane,
                      "copies": c.copies, "oligomer_size": c.oligomer_size,
                      "replicas": campaign.replicas, "built": built, "minimized": minimized,
                      "equilibrated": equilibrated, "assembled": assembled, "failed": failed,

@@ -117,6 +117,26 @@ class Condition:
     def n_lipids(self) -> int:
         return sum(n for _, n in self.lipids)
 
+    @property
+    def round_name(self) -> str:
+        """What the box holds at time zero: `6 monomers`, `1 hexamer`, `2 dimers + 2 monomers`."""
+        if self.peptide == NO_PEPTIDE or not self.copies:
+            return "lipids only"
+        names = ("", "monomer", "dimer", "trimer", "tetramer", "pentamer", "hexamer", "heptamer",
+                 "octamer", "nonamer", "decamer")
+
+        def count(size, k):
+            noun = names[size] if size < len(names) else f"{size}-mer"
+            return f"{k} {noun}{'' if k == 1 else 's'}"
+
+        size = self.oligomer_size or 1
+        if size == 1:
+            return count(1, self.copies)
+        fraction = 1.0 if self.oligomer_fraction is None else self.oligomer_fraction
+        k = round(self.copies * fraction / size)
+        free = self.copies - k * size
+        return count(size, k) + (f" + {count(1, free)}" if free > 0 else "")
+
     def as_row(self) -> dict:
         row = {k: getattr(self, k) for k in (
             "id", "peptide", "membrane", "copies", "oligomer_size", "arrangement",
@@ -124,6 +144,7 @@ class Condition:
             "water_beads_per_lipid", "salt_molar")}
         row["lipids"] = " ".join(f"{name}:{n}" for name, n in self.lipids)
         row["n_lipids"] = self.n_lipids
+        row["round"] = self.round_name
         return row
 
 

@@ -125,13 +125,29 @@ def _common() -> argparse.ArgumentParser:
     return parent
 
 
-def _subparser(sub, name, summary, examples, common):
-    return sub.add_parser(
-        name, parents=[common], formatter_class=_formatter, help=summary,
-        usage=f"shaker {name} [options]",
-        description=f"shaker {name} - {summary}\n\nExamples:\n" + "\n".join(
+class _HelpAction(argparse.Action):
+    """-h on a command: the same panels as the main help on a terminal, argparse text in a pipe."""
+
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, default=argparse.SUPPRESS,
+                         help="show help")
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        _print_command_help(parser)
+        parser.exit()
+
+
+def _subparser(sub, name, summary, examples, common, usage=None, prog=None):
+    prog = prog or f"shaker {name}"
+    p = sub.add_parser(
+        name, parents=[common], formatter_class=_formatter, help=summary, add_help=False,
+        usage=usage or f"{prog} [options]",
+        description=f"{prog} - {summary}\n\nExamples:\n" + "\n".join(
             f"  {line}" for line in examples),
     )
+    p.add_argument("-h", "--help", action=_HelpAction)
+    p.shaker_help = (prog, summary, examples)
+    return p
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -233,17 +249,14 @@ def build_parser() -> argparse.ArgumentParser:
                    ["shaker lipids list", "shaker lipids list --head PG",
                     "shaker lipids show POPG"], common)
     lipid_sub = p.add_subparsers(dest="lipid_command", parser_class=_Parser, metavar="<action>")
-    q = lipid_sub.add_parser("list", parents=[common], formatter_class=_formatter,
-                             help="list every lipid", usage="shaker lipids list [options]",
-                             description="shaker lipids list - list every lipid\n\nExamples:\n"
-                                         "  shaker lipids list\n  shaker lipids list --head PG")
+    q = _subparser(lipid_sub, "list", "list every lipid",
+                   ["shaker lipids list", "shaker lipids list --head PG"], common,
+                   prog="shaker lipids list")
     q.add_argument("--head", metavar="<group>", help="only this head group (PC, PE, PS, PA, PG)")
-    q = lipid_sub.add_parser("show", parents=[common], formatter_class=_formatter,
-                             help="show one lipid",
-                             usage="shaker lipids show <lipid> [options]",
-                             description="shaker lipids show - beads and template of one lipid"
-                                         "\n\nExamples:\n  shaker lipids show POPG")
-    q.add_argument("name", metavar="<lipid>")
+    q = _subparser(lipid_sub, "show", "beads and template of one lipid",
+                   ["shaker lipids show POPG"], common, prog="shaker lipids show",
+                   usage="shaker lipids show <lipid> [options]")
+    q.add_argument("name", metavar="<lipid>", help="lipid name, as listed by `shaker lipids list`")
 
     def collect(p):
         for action in p._actions:
@@ -258,21 +271,63 @@ def build_parser() -> argparse.ArgumentParser:
 
 # output helpers -----------------------------------------------------------------------------
 
-def _table(rows, columns, title=None):
-    from rich.box import ASCII, ROUNDED
-    from rich.table import Table
+def _table(rows, columns, title=None, group=None):
+    """Result table: a muted header over one rule, no cell borders.
 
-    table = Table(title=title, title_style="accent", title_justify="left",
-                  box=ROUNDED if ui.env.unicode else ASCII, border_style="border",
-                  header_style="muted", pad_edge=True, expand=False)
+    `group` names a column whose value is printed once per run of equal rows, with a blank
+    line between runs. A cell may be a rich renderable, which is printed as it is.
+    """
+    from rich.box import Box
+    from rich.table import Table
+    from rich.text import Text
+
+    rule = "\u2500" if ui.env.unicode else "-"
+    head_only = Box("    \n    \n " + rule * 2 + " \n    \n    \n    \n    \n    \n", ascii=not ui.env.unicode)
+    table = Table(title=Text(title, style="accent") if title else None, title_justify="left",
+                  box=head_only, border_style="border", header_style="muted",
+                  pad_edge=False, padding=(0, 2, 0, 0), expand=False, show_edge=False)
     for key, label, justify in columns:
-        table.add_column(label, justify=justify, no_wrap=key in ("condition", "id", "name"))
+        table.add_column(label, justify=justify, no_wrap=key != "detail")
+    previous, first = None, True
     for row in rows:
-        table.add_row(*["" if row.get(key) is None else str(row.get(key)) for key, _, _ in columns])
+        cells = []
+        for key, _, _ in columns:
+            value = row.get(key)
+            if key == group:
+                if not first and value == previous:
+                    value = ""
+                else:
+                    if not first:
+                        table.add_row(*[""] * len(columns))
+                    previous, first = value, False
+                    value = Text(str(value), style="accent")
+            elif isinstance(value, float):
+                value = f"{value:,.2f}".rstrip("0").rstrip(".") if abs(value) >= 1000 else f"{value:g}"
+            elif isinstance(value, int) and not isinstance(value, bool):
+                value = f"{value:,}"
+            cells.append("" if value is None else value if hasattr(value, "__rich_console__") or
+                         isinstance(value, Text) else str(value))
+        table.add_row(*cells)
     return table
 
 
-def _emit(args, data, rows, columns, title=None, table_columns=None):
+def _bar(parts, total, width=22):
+    """Segmented bar: [(count, style), ...] over `total`, the rest dim."""
+    from rich.text import Text
+
+    full, rest = ("\u2501", "\u2501") if ui.env.unicode else ("#", "-")
+    bar, used = Text(), 0
+    for count, style in parts:
+        cells = min(width - used, round(width * count / total)) if total else 0
+        if count and not cells and used < width:
+            cells = 1
+        bar.append(full * cells, style=style)
+        used += cells
+    bar.append(rest * (width - used), style="border")
+    return bar
+
+
+def _emit(args, data, rows, columns, title=None, table_columns=None, group=None):
     """Result to stdout: JSON, tab separated text, or a table.
 
     `columns` is the full set, used by --plain. `table_columns` is the subset that fits a
@@ -286,7 +341,9 @@ def _emit(args, data, rows, columns, title=None, table_columns=None):
                   for r in rows]
         sys.stdout.write("\n".join(lines) + "\n")
     else:
-        ui.emit(data, renderable=_table(rows, table_columns or columns, title))
+        ui.console.print()
+        ui.emit(data, renderable=_table(rows, table_columns or columns, title, group))
+        ui.console.print()
 
 
 def _type_out(text):
@@ -395,6 +452,64 @@ def _print_help():
     out.print(Text(HELP_FOOTER, style="muted"))
 
 
+def _print_command_help(parser):
+    """Help of one command: usage, examples and its options, drawn like the main help."""
+    if not ui.env.stdout_tty or not hasattr(parser, "shaker_help"):
+        sys.stdout.write(parser.format_help())
+        return
+    from rich.table import Table
+    from rich.text import Text
+
+    prog, summary, examples = parser.shaker_help
+    out = ui.console
+    usage = parser.usage[len(prog):].strip()
+    out.print(Text.assemble(("usage  ", "muted"), (prog, "accent"), " ", (usage, "muted")))
+    out.print(Text(f"       {summary}", style="fg"))
+
+    rows = Table.grid(padding=(0, 2))
+    rows.add_column(no_wrap=True)
+    rows.add_column(no_wrap=True)
+    for example in examples:
+        rows.add_row(Text(ui.G["pointer"], style="accent2"), Text(example, style="fg"))
+    out.print(ui.panel(rows, "examples"))
+
+    def flag(action):
+        if not action.option_strings:
+            return action.metavar or action.dest
+        short = [o for o in action.option_strings if not o.startswith("--")]
+        long = [o for o in action.option_strings if o.startswith("--")]
+        text = (f"{short[0]}, " if short else "    ") + (long[0] if long else "")
+        return text + (f" {action.metavar}" if action.metavar and action.nargs != 0 else "")
+
+    general = {"config", "json", "plain", "quiet", "no_quotes", "color", "version", "help"}
+    for group in parser._action_groups:
+        actions = [a for a in group._group_actions
+                   if a.dest not in general and not isinstance(a, argparse._SubParsersAction)]
+        subs = [a for a in group._group_actions if isinstance(a, argparse._SubParsersAction)]
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(no_wrap=True, min_width=24)
+        grid.add_column()
+        for action in actions:
+            grid.add_row(Text(flag(action), style="accent2"), Text(action.help or "", style="fg"))
+        for sub in subs:
+            for choice in sub._choices_actions:
+                grid.add_row(Text(choice.dest, style="accent"), Text(choice.help or "", style="fg"))
+        if actions or subs:
+            title = "actions" if subs and not actions else \
+                group.title if group.title not in ("options", "positional arguments") else \
+                "arguments" if group.title == "positional arguments" else "options"
+            out.print(ui.panel(grid, title))
+
+    options = Table.grid(padding=(0, 2))
+    options.add_column(no_wrap=True, min_width=24)
+    options.add_column()
+    options.add_column()
+    for name, text, default in HELP_OPTIONS:
+        options.add_row(Text(name, style="accent2"), Text(text, style="muted"),
+                        Text(default, style="dim"))
+    out.print(ui.panel(options, "general options"))
+
+
 # commands -----------------------------------------------------------------------------------
 
 def _config_path(args) -> Path:
@@ -442,11 +557,14 @@ def cmd_check(args):
     with ui.status("checking the environment"):
         checks = check.run_checks(root)
     failures = check.blocking(checks)
-    glyph = {"ok": ui.G["ok"], "warn": ui.G["warn"], "fail": ui.G["err"]}
-    rows = [{**c, "mark": glyph[c["status"]]} for c in checks]
+    from rich.text import Text
+
+    glyph = {"ok": (ui.G["ok"], "ok"), "warn": (ui.G["warn"], "warn"), "fail": (ui.G["err"], "err")}
+    rows = [{**c, "mark": Text(glyph[c["status"]][0], style=glyph[c["status"]][1])} for c in checks]
     _emit(args, {"ok": not failures, "checks": checks}, rows,
           [("status", "status", "left"), ("name", "item", "left"), ("detail", "detail", "left")],
-          "environment")
+          "environment", table_columns=[("mark", "", "left"), ("name", "item", "left"),
+                                        ("detail", "detail", "left")])
     if failures:
         raise ShakerError(
             f"{len(failures)} check(s) failed: {', '.join(c['name'] for c in failures)}",
@@ -464,29 +582,36 @@ def cmd_plan(args):
     campaign = _load(args, library)
     data = ops.plan(campaign, library, args.ns_per_day)
     totals = data["totals"]
-    for row in data["conditions"]:
-        row["progress"] = f"{row['built']}/{row['replicas']}"
-    _emit(args, data, data["conditions"], [
-        ("id", "condition", "left"), ("peptide", "peptide", "left"),
+    from rich.text import Text
+
+    shown = [{**row, "peptide": "control" if row["peptide"] == "none" else row["peptide"],
+              "progress": f"{row['built']} / {row['replicas']}", "dim_id": Text(row["id"], style="dim"),
+              "ratio": "" if row["peptide"] == "none" else row["peptide_to_lipid"]}
+             for row in data["conditions"]]
+    _emit(args, data, data["conditions"] if args.plain or args.json else shown, [
+        ("id", "condition", "left"), ("peptide", "peptide", "left"), ("round", "round", "left"),
         ("membrane", "membrane", "left"), ("lipids", "lipids", "left"),
         ("copies", "copies", "right"), ("oligomer_size", "oligomer", "right"),
         ("peptide_to_lipid", "P:L", "right"), ("beads", "beads", "right"),
         ("box_nm", "box nm", "right"), ("built", "built", "right"),
         ("replicas", "replicas", "right")], "campaign plan", table_columns=[
-        ("id", "condition", "left"), ("lipids", "lipids", "left"),
-        ("peptide_to_lipid", "P:L", "right"), ("beads", "beads", "right"),
-        ("box_nm", "box nm", "right"), ("progress", "built", "right")])
+        ("peptide", "peptide", "left"), ("round", "round", "left"),
+        ("membrane", "membrane", "left"), ("lipids", "lipids", "left"),
+        ("ratio", "P:L", "right"), ("beads", "beads", "right"),
+        ("box_nm", "box nm", "right"), ("progress", "built", "right")], group="peptide")
     if not args.quiet and not args.json:
-        ui.info(f"{totals['conditions']} conditions x {totals['replicas_per_condition']} replicas "
-                f"= {totals['simulations']} simulations, "
-                f"{totals['simulated_microseconds']} microseconds in total")
+        ui.info(f"{totals['conditions']} rounds x {totals['replicas_per_condition']} replicas "
+                f"= {totals['simulations']:,} simulations, "
+                f"{totals['simulated_microseconds']:,} microseconds in total")
         if totals["compute_days"] is not None:
-            ui.info(f"about {totals['compute_days']} days of one replica slot at "
-                    f"{totals['ns_per_day']:g} ns/day ({totals['ns_per_day_source']})")
+            ui.info(f"about {totals['compute_days']:,} days of one replica slot at "
+                    f"{totals['ns_per_day']:,.0f} ns/day ({totals['ns_per_day_source']})")
         else:
             ui.info("time not estimated: run a pilot, or pass --ns-per-day")
         if totals["trajectory_gb"] is not None:
             ui.info(f"about {totals['trajectory_gb']} GB of trajectories, from a measured frame")
+        ui.err.print("  [muted]condition ids for --condition:[/] [accent]shaker plan --plain[/]",
+                     highlight=False)
         if any(not row["beads_exact"] for row in data["conditions"]):
             ui.warn("bead counts are approximate until `shaker prepare` has run")
     _finish(args, "plan", f"{totals['simulations']} simulations")
@@ -730,17 +855,33 @@ def cmd_status(args):
 
     campaign = _load(args)
     rows = ops.status(campaign)
+    from rich.text import Text
+
+    shown = []
+    for row in rows:
+        n, done, built = row["replicas"], row["assembled"], row["built"]
+        shown.append({**row, "peptide": "control" if row["peptide"] == "none" else row["peptide"],
+                      "bar": _bar([(done, "ok"), (built - done, "teal")], n),
+                      "done": f"{done} / {n}", "built_n": f"{built} / {n}",
+                      "bad": Text(str(row["failed"]), style="err") if row["failed"] else "",
+                      "dim_id": Text(row["condition"], style="dim")})
     full = [("condition", "condition", "left"), ("peptide", "peptide", "left"),
-            ("membrane", "membrane", "left"), ("copies", "copies", "right"),
+            ("round", "round", "left"), ("membrane", "membrane", "left"), ("copies", "copies", "right"),
             ("oligomer_size", "oligomer", "right"), ("replicas", "replicas", "right"),
             ("built", "built", "right"), ("minimized", "minimized", "right"),
             ("equilibrated", "equilibrated", "right"), ("assembled", "assembled", "right"),
             ("failed", "failed", "right"), ("ns_per_day", "ns/day", "right")]
-    _emit(args, rows, rows, full, "campaign status", table_columns=[
-        ("condition", "condition", "left"), ("replicas", "of", "right"),
-        ("built", "built", "right"), ("equilibrated", "equil", "right"),
-        ("assembled", "assem", "right"), ("failed", "fail", "right"),
-        ("ns_per_day", "ns/day", "right")])
+    _emit(args, rows, rows if args.plain or args.json else shown, full, "campaign status",
+          table_columns=[
+              ("peptide", "peptide", "left"), ("round", "round", "left"),
+              ("membrane", "membrane", "left"), ("bar", "progress", "left"),
+              ("done", "assembled", "right"), ("built_n", "built", "right"),
+              ("bad", "failed", "right"), ("ns_per_day", "ns/day", "right")], group="peptide")
+    if not args.quiet and not args.json and not args.plain and ui.env.stderr_tty:
+        ui.err.print(Text.assemble(("  ", ""), ("\u2501\u2501" if ui.env.unicode else "##", "ok"),
+                                   (" assembled   ", "muted"),
+                                   ("\u2501\u2501" if ui.env.unicode else "##", "teal"),
+                                   (" built, not assembled", "muted")))
     return 0
 
 
