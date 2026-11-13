@@ -208,6 +208,8 @@ def build(campaign: Campaign, targets: list, library: LipidLibrary, force: bool 
                     axis_distance=condition.axis_distance or 1.0,
                     oligomer_fraction=1.0 if condition.oligomer_fraction is None
                     else condition.oligomer_fraction,
+                    periodicity=campaign.simulation["periodicity"],
+                    wall_margin=campaign.simulation["walls"]["margin_nm"],
                 )
                 replica_log = EventLog(directory, condition=condition.id, replica=index)
                 with replica_log.step("build", seed=seed):

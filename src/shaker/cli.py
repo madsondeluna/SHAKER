@@ -25,7 +25,7 @@ TAGLINE = brand.TAGLINE
 
 # The help screen is data, rendered as panels on a terminal and as aligned text in a pipe.
 WORKFLOW = [
-    ("shaker init", "write an example config.yaml"),
+    ("shaker init", "write config.yaml and mdp.yaml"),
     ("shaker check --pin", "verify tools, pin their versions"),
     ("shaker plan", "expand the campaign, count simulations"),
     ("shaker prepare", "coarse-grain the peptides"),
@@ -503,12 +503,20 @@ def cmd_init(args):
     path = _config_path(args)
     if path.exists() and not args.force:
         raise ShakerError(f"{path} already exists", "pass --force to overwrite it")
+    from . import mdp
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(EXAMPLE)
+    written = [str(path)]
+    run_file = path.parent / mdp.FILE_NAME
+    if not run_file.exists() or args.force:
+        run_file.write_text(mdp.EXAMPLE)
+        written.append(str(run_file))
     if args.json:
-        ui.emit({"written": str(path)}, as_json=True)
+        ui.emit({"written": written[0], "files": written}, as_json=True)
     else:
-        ui.ok(f"wrote {path}")
+        for name in written:
+            ui.ok(f"wrote {name}")
         ui.err.print(f"  [muted]next:[/] [accent]{NEXT['init']}[/]", highlight=False)
     return 0
 

@@ -18,11 +18,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from .. import MDP_DIR, seeds
+from .. import mdp as mdp_file
+from .. import seeds
 from ..events import EventLog
 
 STATE_FILE = "run.json"
-EM_TOLERANCE = 1000  # kJ/mol/nm, the emtol of em.mdp
 
 
 class EngineError(RuntimeError):
@@ -41,32 +41,15 @@ def stage_names(simulation: dict) -> list:
     return ["em"] + [f"eq{i}" for i in range(1, len(simulation["equilibration"]) + 1)] + ["assembly"]
 
 
-def _md_mdp(dt, nsteps, temperature, frame_ps, first, gen_seed) -> str:
-    every = max(1, min(nsteps, int(round(frame_ps / dt))))
-    energy = max(1, min(nsteps, every // 10 or 1))
-    text = (MDP_DIR / "md.mdp").read_text()
-    for key, value in {
-        "@DT@": dt, "@NSTEPS@": nsteps, "@TEMPERATURE@": temperature,
-        "@NSTXOUT@": every, "@NSTENERGY@": energy,
-        "@GEN_VEL@": "yes" if first else "no",
-        "@CONTINUATION@": "no" if first else "yes",
-        "@GEN_SEED@": gen_seed,
-    }.items():
-        text = text.replace(key, str(value))
-    return text
-
-
 def stage_plan(simulation: dict, seed: int) -> list:
     """[(stage name, mdp text)] for a replica."""
     gen_seed = seeds.gromacs_seed(seed)
-    temperature = simulation["temperature"]
-    frame_ps = simulation["frame_ps"]
-    plan = [("em", (MDP_DIR / "em.mdp").read_text())]
+    plan = [("em", mdp_file.em_text(simulation))]
     for i, (dt, nsteps) in enumerate(simulation["equilibration"], start=1):
-        plan.append((f"eq{i}", _md_mdp(dt, int(nsteps), temperature, frame_ps, i == 1, gen_seed)))
+        plan.append((f"eq{i}", mdp_file.md_text(simulation, dt, int(nsteps), i == 1, gen_seed)))
     dt = simulation["timestep_ps"]
     nsteps = int(round(simulation["assembly_ns"] * 1000 / dt))
-    plan.append(("assembly", _md_mdp(dt, nsteps, temperature, frame_ps, False, gen_seed)))
+    plan.append(("assembly", mdp_file.md_text(simulation, dt, nsteps, False, gen_seed)))
     return plan
 
 
@@ -243,5 +226,5 @@ def _em_warning(directory):
     if "converged to Fmax" in text and "did not converge" not in text:
         return None
     force = re.search(r"Maximum force\s+=\s+(\S+)", text)
-    return (f"minimization did not reach Fmax < {EM_TOLERANCE} kJ/mol/nm"
+    return ("minimization did not reach the emtol of mdp.yaml"
             + (f" (Fmax {float(force.group(1)):.0f})" if force else ""))

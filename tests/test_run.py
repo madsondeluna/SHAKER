@@ -26,7 +26,7 @@ SHORT = """simulation:
 
 @pytest.fixture
 def campaign_dir(tmp_path, monkeypatch):
-    text = EXAMPLE[: EXAMPLE.index("simulation:")] + SHORT
+    text = EXAMPLE + "\n" + SHORT
     text = text.replace("replicas: 100", "replicas: 2")
     text = text.replace("{POPE: 96, POPG: 32}", "{POPE: 48, POPG: 16}")
     text = text.replace("oligomer_size: [1, 6]", "oligomer_size: 1")
@@ -55,8 +55,8 @@ def test_stage_plan_uses_the_replica_seed(campaign_dir):
     plan_a = dict(stage_plan(campaign.simulation, 1))
     plan_b = dict(stage_plan(campaign.simulation, 2))
     assert list(plan_a) == ["em", "eq1", "eq2", "assembly"]
-    assert "gen_vel                  = yes" in plan_a["eq1"]
-    assert "gen_vel                  = no" in plan_a["eq2"]
+    assert "gen-vel                  = yes" in plan_a["eq1"]
+    assert "gen-vel                  = no" in plan_a["eq2"]
     assert plan_a["eq1"] != plan_b["eq1"]  # different gen_seed
     assert "nsteps                   = 200" in plan_a["assembly"]
 

@@ -17,21 +17,32 @@ class SolventError(RuntimeError):
     pass
 
 
-def free_sites(box, solute_points, n_sites: int, rng: np.random.Generator):
+def free_sites(box, solute_points, n_sites: int, rng: np.random.Generator,
+               open_z: bool = False, margin: float = 0.0):
     """Return (coordinates of n_sites free grid sites in random order, clearance used).
 
     The clearance to the solute starts at the first value of CLEARANCES and is relaxed only if
     the box cannot hold the requested number of sites.
     """
     box = np.asarray(box, dtype=float)
-    counts = np.maximum(np.floor(box / GRID_SPACING).astype(int), 1)
-    spacing = box / counts
+    # With walls in z the grid covers only the slab between the two margins and nothing wraps
+    # through z; x and y stay periodic.
+    low = np.array([0.0, 0.0, margin if open_z else 0.0])
+    span = box - 2.0 * low
+    period = box.copy()
+    if open_z:
+        period[2] = 2.0 * box[2] + 10.0
+    counts = np.maximum(np.floor(span / GRID_SPACING).astype(int), 1)
+    spacing = span / counts
     grid = np.stack(
         np.meshgrid(*[np.arange(c) for c in counts], indexing="ij"), axis=-1
     ).reshape(-1, 3)
-    sites = (grid + 0.5) * spacing + rng.uniform(-JITTER, JITTER, size=(len(grid), 3))
-    sites = np.mod(sites, box)
-    sites[sites >= box] = 0.0
+    sites = low + (grid + 0.5) * spacing + rng.uniform(-JITTER, JITTER, size=(len(grid), 3))
+    wrapped = np.mod(sites, box)
+    wrapped[wrapped >= box] = 0.0
+    if open_z:
+        wrapped[:, 2] = np.clip(sites[:, 2], low[2], box[2] - low[2])
+    sites = wrapped
 
     if n_sites > len(sites):
         raise SolventError(
@@ -43,7 +54,7 @@ def free_sites(box, solute_points, n_sites: int, rng: np.random.Generator):
     if len(solute_points) == 0:
         return sites[order[:n_sites]], CLEARANCES[0]
 
-    tree = cKDTree(np.asarray(solute_points), boxsize=box)
+    tree = cKDTree(np.asarray(solute_points), boxsize=period)
     nearest, _ = tree.query(sites, k=1)
     available = 0
     for clearance in CLEARANCES:

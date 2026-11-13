@@ -14,6 +14,7 @@ from pathlib import Path
 
 import yaml
 
+from . import mdp
 from .peptide.helix import validate_sequence
 
 NO_PEPTIDE = "none"
@@ -34,14 +35,7 @@ CHOICES = {
     "arrangement": ("parallel", "antiparallel"),
     "hydrophobic_face": ("inward", "outward"),
 }
-SIMULATION_DEFAULTS = {
-    "temperature": 310,
-    "timestep_ps": 0.02,
-    "equilibration": [[0.002, 5000], [0.005, 5000], [0.010, 5000], [0.020, 10000]],
-    "assembly_ns": 400,
-    "production_ns": 0,
-    "frame_ps": 1000,
-}
+SIMULATION_DEFAULTS = mdp.SCHEDULE_DEFAULTS  # `simulation:` of config.yaml, kept for older campaigns
 PEPTIDE_DEFAULTS = {"secondary_structure": "helix", "c_terminus": "free"}
 TOP_LEVEL_KEYS = {"master_seed", "replicas", "peptides", "membranes", "conditions", "simulation"}
 
@@ -71,18 +65,6 @@ conditions:
   oligomer_fraction: 1.0            # fraction of copies that start in multimers
   water_beads_per_lipid: 15         # one bead is four water molecules
   salt_molar: 0.15
-
-simulation:
-  temperature: 310                  # K
-  timestep_ps: 0.02
-  equilibration:                    # time-step ramp: [dt in ps, steps]
-    - [0.002, 5000]
-    - [0.005, 5000]
-    - [0.010, 5000]
-    - [0.020, 10000]
-  assembly_ns: 400                  # self-assembly, isotropic pressure
-  production_ns: 0                  # after alignment, semi-isotropic (not run yet)
-  frame_ps: 1000                    # trajectory frame interval
 """
 
 
@@ -308,20 +290,23 @@ def load_campaign(path, library=None) -> Campaign:
         cid = _condition_id(values, peptide, lipids)
         conditions[cid] = Condition(id=cid, lipids=tuple(lipids.items()), **values)
 
-    simulation = dict(SIMULATION_DEFAULTS)
     given = data.get("simulation") or {}
+    _require(isinstance(given, dict), "simulation must be a mapping")
     extra = sorted(set(given) - set(SIMULATION_DEFAULTS))
     _require(not extra, f"unknown key(s) under simulation: {', '.join(extra)}")
-    simulation.update(given)
+    try:
+        simulation = mdp.load(path.resolve().parent, given)
+    except mdp.MdpError as exc:
+        raise ConfigError(str(exc)) from None
     ramp = simulation["equilibration"]
     _require(isinstance(ramp, list) and ramp and all(
         isinstance(s, (list, tuple)) and len(s) == 2 and s[0] > 0 and int(s[1]) > 0 for s in ramp),
-        "simulation.equilibration must be a list of [dt_ps, steps] pairs")
+        "schedule.equilibration must be a list of [dt_ps, steps] pairs")
     for key in ("temperature", "timestep_ps", "assembly_ns", "frame_ps"):
         _require(isinstance(simulation[key], (int, float)) and simulation[key] > 0,
-                 f"simulation.{key} must be > 0")
+                 f"schedule.{key} must be > 0")
     _require(isinstance(simulation["production_ns"], (int, float))
-             and simulation["production_ns"] >= 0, "simulation.production_ns must be >= 0")
+             and simulation["production_ns"] >= 0, "schedule.production_ns must be >= 0")
 
     return Campaign(
         root=path.resolve().parent,

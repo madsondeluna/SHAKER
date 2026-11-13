@@ -16,8 +16,16 @@ class Placer:
     tested against molecules near the opposite face.
     """
 
-    def __init__(self, box, min_distance: float, rng: np.random.Generator, max_tries: int = 5000):
+    def __init__(self, box, min_distance: float, rng: np.random.Generator, max_tries: int = 5000,
+                 open_z: bool = False, margin: float = 0.0):
         self.box = np.asarray(box, dtype=float)
+        # A box closed by walls in z is not periodic there: nothing wraps through z, every bead
+        # stays `margin` away from the two faces, and z distances are plain distances.
+        self.open_z = bool(open_z)
+        self.margin = float(margin) if open_z else 0.0
+        self._period = self.box.copy()
+        if self.open_z:
+            self._period[2] = 2.0 * self.box[2] + 10.0 * float(min_distance)
         self.min_distance = float(min_distance)
         self.rng = rng
         self.max_tries = int(max_tries)
@@ -34,7 +42,13 @@ class Placer:
         wrapped = np.mod(coords, self.box)
         # np.mod can return exactly the box length for tiny negative inputs.
         wrapped[wrapped >= self.box] = 0.0
+        if self.open_z:
+            wrapped[:, 2] = coords[:, 2]
         return wrapped
+
+    def _inside(self, coords) -> bool:
+        z = coords[:, 2]
+        return bool(z.min() >= self.margin and z.max() <= self.box[2] - self.margin)
 
     def _overlaps(self, wrapped) -> bool:
         if self._tree is None:
@@ -44,7 +58,7 @@ class Placer:
 
     def _commit(self, wrapped) -> None:
         self._points = np.vstack([self._points, wrapped])
-        self._tree = cKDTree(self._points, boxsize=self.box)
+        self._tree = cKDTree(self._points, boxsize=self._period)
 
     def insert(self, template) -> np.ndarray:
         """Place one rigid body with a uniform random position and orientation.
@@ -58,6 +72,8 @@ class Placer:
             rotation = Rotation.random(random_state=self.rng).as_matrix()
             centre = self.rng.random(3) * self.box
             coords = template @ rotation.T + centre
+            if self.open_z and not self._inside(coords):
+                continue
             wrapped = self._wrap(coords)
             if not self._overlaps(wrapped):
                 self._commit(wrapped)

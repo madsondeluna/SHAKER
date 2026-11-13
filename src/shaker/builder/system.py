@@ -36,6 +36,8 @@ class SystemSpec:
     oligomer_fraction: float = 1.0
     bead_volume: float = 0.125  # nm^3 per bead, sets the starting box volume
     min_distance: float = 0.35  # nm between beads of different solute molecules
+    periodicity: str = "xyz"  # xyz, or xy for a box closed by two walls in z
+    wall_margin: float = 0.3  # nm kept free next to each wall when periodicity is xy
 
     def validate(self) -> None:
         if not self.lipids or any(n < 0 for n in self.lipids.values()):
@@ -46,6 +48,8 @@ class SystemSpec:
             raise ValueError("copies must be >= 0 and oligomer_size >= 1")
         if self.copies > 0 and self.peptide is None:
             raise ValueError("copies > 0 but no peptide was given")
+        if self.periodicity not in ("xyz", "xy"):
+            raise ValueError("periodicity must be xyz or xy")
         if not 0.0 <= self.oligomer_fraction <= 1.0:
             raise ValueError("oligomer_fraction must be between 0 and 1")
         if self.water_beads_per_lipid <= 0 or self.salt_molar < 0:
@@ -114,7 +118,8 @@ def build_system(
     total_beads = peptide_beads + lipid_beads + n_solvent
     box = np.full(3, (spec.bead_volume * total_beads) ** (1.0 / 3.0))
 
-    placer = Placer(box, spec.min_distance, rng)
+    open_z = spec.periodicity == "xy"
+    placer = Placer(box, spec.min_distance, rng, open_z=open_z, margin=spec.wall_margin)
 
     # Peptides go in first (largest bodies), then lipids in a shuffled order so no lipid type
     # is systematically inserted into a more crowded box than another.
@@ -139,7 +144,8 @@ def build_system(
     if n_na + n_cl > n_solvent:
         raise ValueError("more ions than solvent sites; raise water_beads_per_lipid")
     n_water = n_solvent - n_na - n_cl
-    sites, clearance = free_sites(box, placer.points, n_solvent, rng)
+    sites, clearance = free_sites(box, placer.points, n_solvent, rng, open_z=open_z,
+                                  margin=spec.wall_margin)
 
     # Assemble coordinates in topology order.
     resnrs, resnames, names, coords = [], [], [], []
@@ -195,6 +201,8 @@ def build_system(
         "seed": int(seed),
         "builder_seed": seeds.derive(seed, "builder"),
         "box_nm": [round(float(v), 5) for v in box],
+        "periodicity": spec.periodicity,
+        "wall_margin_nm": spec.wall_margin if open_z else None,
         "total_beads": len(coords),
         "molecules": {name: count for name, count in molecules},
         "net_charge": net_charge,

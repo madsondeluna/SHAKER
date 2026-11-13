@@ -21,6 +21,7 @@ Shaken chaos. Self-served order.
 | [Pipeline](#pipeline) | stages and what each one writes |
 | [Commands](#commands) | every command and its flags |
 | [Configuration](#configuration) | keys of `config.yaml` |
+| [Run parameters](#run-parameters) | keys of `mdp.yaml`, box periodicity |
 | [Campaign directory](#campaign-directory) | files on disk |
 | [Box construction](#box-construction) | how a random box is made |
 | [Simulation stages](#simulation-stages) | minimization, ramp, self-assembly |
@@ -67,13 +68,23 @@ A campaign lives in its own folder, outside the repository:
 
 | Step | Command | Result |
 |---|---|---|
-| 1 | `shaker init` | `config.yaml` with an example campaign |
+| 1 | `shaker init` | `config.yaml` with an example campaign, `mdp.yaml` with the run parameters |
 | 2 | `shaker check --pin` | tools verified, versions written to `environment.lock.yaml` |
 | 3 | `shaker plan` | conditions, simulation count, time and disk estimate |
 | 4 | `shaker prepare` | coarse-grained peptides, `results/peptides.csv` |
 | 5 | `shaker build` | one random box per replica |
 | 6 | `shaker run --jobs 4 --threads 2` | minimization, time-step ramp, 400 ns of self-assembly |
 | | `shaker status` | replicas built, equilibrated, assembled, failed |
+
+Simulation length, time step and box periodicity are set in `mdp.yaml` before `shaker build`:
+
+```yaml
+periodicity: xyz        # or xy: two walls close the box in z
+schedule:
+  timestep_ps: 0.02
+  assembly_ns: 400
+  frame_ps: 1000
+```
 
 On a GPU workstation:
 
@@ -99,7 +110,7 @@ Source: [docs/pipeline.drawio](docs/pipeline.drawio).
 
 | Command | Purpose | Writes |
 |---|---|---|
-| `init` | example `config.yaml` | `config.yaml` |
+| `init` | example campaign and run parameters | `config.yaml`, `mdp.yaml` |
 | `check` | tools, versions, force-field hashes, lipid templates | nothing |
 | `check --pin` | record current versions as the reference | `environment.lock.yaml` |
 | `plan` | conditions, simulation count, simulated time | nothing |
@@ -184,12 +195,6 @@ Precedence: flag, then environment variable, then default.
 | `conditions.oligomer_fraction` | 0 to 1 | 1.0 | fraction of copies that start in multimers |
 | `conditions.water_beads_per_lipid` | number | 15 | one bead is four water molecules |
 | `conditions.salt_molar` | mol/L | 0.15 | NaCl, plus neutralizing counterions |
-| `simulation.temperature` | K | 310 | v-rescale |
-| `simulation.timestep_ps` | ps | 0.02 | self-assembly time step |
-| `simulation.equilibration` | list of `[dt_ps, steps]` | 2, 5, 10 fs for 5000 steps, 20 fs for 10000 | time-step ramp after minimization |
-| `simulation.assembly_ns` | ns | 400 | self-assembly, isotropic c-rescale |
-| `simulation.production_ns` | ns | 0 | not run yet |
-| `simulation.frame_ps` | ps | 1000 | trajectory frame interval |
 
 Every key under `conditions` accepts a list. Lists are expanded as a full factorial grid, and combinations that differ only in settings without effect collapse into one condition.
 
@@ -197,11 +202,44 @@ Condition id: `<peptide>__<membrane>__n<copies>__o<oligomer_size>__<hash>`. The 
 
 Replica seed: SHA-256 of master seed, condition id and replica index.
 
+## Run parameters
+
+`mdp.yaml`, beside `config.yaml`, holds every GROMACS run parameter. `shaker init` writes it with the defaults below. A campaign without the file runs on the same defaults.
+
+| Key | Values | Default | Meaning |
+|---|---|---|---|
+| `periodicity` | `xyz`, `xy` | `xyz` | `xyz`: periodic in three directions. `xy`: periodic in x and y, two walls close the box in z |
+| `walls.atomtype` | Martini bead type | `W` | type both walls are made of |
+| `walls.type` | `12-6`, `9-3`, `10-4` | `12-6` | wall potential; `9-3` and `10-4` need `walls.density` |
+| `walls.density` | nm⁻³ | none | number density of the wall |
+| `walls.r_linpot` | nm | 0.0 | distance below which the wall force is linear |
+| `walls.margin_nm` | nm | 0.3 | space the builder keeps free next to each wall |
+| `schedule.temperature` | K | 310 | `ref-t` and `gen-temp` |
+| `schedule.timestep_ps` | ps | 0.02 | time step of the assembly |
+| `schedule.equilibration` | list of `[dt_ps, steps]` | 2, 5, 10 fs for 5000 steps, 20 fs for 10000 | time-step ramp after minimization |
+| `schedule.assembly_ns` | ns | 400 | length of the assembly |
+| `schedule.production_ns` | ns | 0 | not run yet |
+| `schedule.frame_ps` | ps | 1000 | trajectory frame interval |
+| `common.<option>` | any mdp option | reaction-field, 1.1 nm cut-offs, Verlet | written to every stage |
+| `em.<option>` | any mdp option | steep, 10000 steps, `emtol` 1000 | written to the minimization |
+| `md.<option>` | any mdp option | v-rescale, c-rescale isotropic, `tau-p` 4.0 | written to the ramp and the assembly |
+
+Written by `shaker` and refused in the file: `pbc`, `nwall`, `wall-*`, `define`, `dt`, `nsteps`, `nstxout-compressed`, `nstenergy`, `nstlog`, `ref-t`, `gen-vel`, `gen-temp`, `gen-seed`, `continuation`.
+
+GROMACS offers no periodicity in a single direction or in two directions other than x and y. A box open along another axis is built with that axis as z.
+
+With `periodicity: xy` the builder places no bead closer than `walls.margin_nm` to a wall and wraps nothing through z. `periodicity` applies to the whole campaign and must be set before `shaker build`.
+
+`nsteps` and `dt` of each stage are computed from `schedule`. The file is read when a stage starts: a stage that already has its final `.gro` is not rerun or extended by a later change of `assembly_ns`.
+
+A `simulation:` block in `config.yaml` is still read, with the keys of `schedule`. A key given in both files must have the same value.
+
 ## Campaign directory
 
 | Path | Content |
 |---|---|
 | `config.yaml` | campaign definition |
+| `mdp.yaml` | periodicity, walls, schedule and mdp options |
 | `environment.lock.yaml` | pinned versions and force-field hashes |
 | `forcefield/` | Martini 3 files included by every topology |
 | `peptides/<name>/` | `helix.pdb`, `cg.pdb`, `<name>.itp`, `descriptors.json`, `martinize2.log`, `command.txt` |
@@ -217,7 +255,7 @@ Replica seed: SHA-256 of master seed, condition id and replica index.
 | Step | Rule |
 |---|---|
 | Box | cubic, volume 0.125 nm³ per bead |
-| Peptides, multimers, lipids | uniform random position and orientation, rejected if a bead falls within 0.35 nm of a placed bead, periodic |
+| Peptides, multimers, lipids | uniform random position and orientation, rejected if a bead falls within 0.35 nm of a placed bead; periodic in every direction the box is |
 | Water and ions | jittered grid, 0.42 nm spacing, sites at least 0.35 nm from the solute, relaxed to 0.28 nm only if needed |
 | Ions | NaCl pairs from `salt_molar`, plus counterions to zero net charge |
 | Lipid template | computed from the bonds of the itp |
@@ -259,6 +297,8 @@ In `--json` mode an error is also a JSON document on stdout: `{"error": {"code",
 | `eq1` to `eqN` | time-step ramp, velocities generated in `eq1` from the replica seed | `eqN.gro` exists |
 | `assembly` | 20 fs, reaction-field, 1.1 nm cut-offs, v-rescale, isotropic c-rescale | `assembly.gro` exists |
 
+The settings are the defaults of `mdp.yaml`. Each `<stage>.mdp` is written from that file when the stage starts.
+
 A stage with a checkpoint and no final `.gro` continues from the checkpoint. `run.json` holds, per stage, the status, wall seconds, ns/day, frames written and trajectory bytes. Replica status: `done`, `incomplete` (stopped at `--maxh`), `failed` with the reason GROMACS gave.
 
 `shaker run` refuses to start when a version or a force-field hash differs from `environment.lock.yaml`.
@@ -275,8 +315,9 @@ Apple Silicon laptop, CPU only, GROMACS 2025.3.
 | `assembly`, 6 threads, one replica | 3780 beads | 1422 ns/day |
 | `assembly`, 2 threads each, three replicas at once | 3456 to 3780 beads | 1111 to 1332 ns/day each |
 | Trajectory frame | 3780 beads | 17.9 kB |
+| `assembly`, `periodicity: xy`, 4 threads, one replica | 3780 beads | 1945 ns/day |
 
-Memory use and GPU throughput were not measured. No simulation was run long enough to form a bilayer.
+Memory use and GPU throughput were not measured. No simulation was run long enough to form a bilayer. The effect of the walls on assembly was not evaluated.
 
 ## Validation
 
@@ -308,7 +349,9 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | SLURM job array | `shaker run --backend slurm-array` | implemented, script generation tested, not submitted to a cluster |
 | Bilayer alignment and semi-isotropic production | `shaker run` | not implemented |
 | Analysis, classification, renders | `shaker analyze` | not implemented |
-| Local interface: overview, conditions, replicas, bead viewer, events, peptides | `shaker serve` | implemented |
+| Run parameters in one file, box periodicity `xyz` or `xy` with walls | `mdp.yaml` | implemented, `xy` verified by one 2 ns replica |
+| Local interface: peptides, rounds, replicas, bead viewer, energy plots, events | `shaker serve` | implemented |
+| Extending a finished stage | none | not implemented |
 | Outcome tables and plots in the interface | `shaker serve` | not implemented, needs `analyze` |
 
 ## Sources
@@ -331,7 +374,7 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | `src/shaker/lipids/` | lipid library and templates |
 | `src/shaker/engine/` | GROMACS stages, SLURM job array |
 | `src/shaker/forcefield/martini3/` | Martini 3 files with checksums |
-| `src/shaker/mdp/` | run parameter templates |
+| `src/shaker/mdp.py` | `mdp.yaml`: defaults, validation, `.mdp` text of each stage |
 | `src/shaker/ui.py`, `brand.py`, `quotes.yaml` | terminal output, palette, shaker mark, quotes |
 | `tests/` | 63 tests |
 | `docs/` | background notes |
@@ -347,12 +390,15 @@ shaker serve
 
 | View | Content |
 |---|---|
-| Overview | totals, measured ns/day, time and disk estimates, one progress bar per condition |
-| Progress | steps done and left with the next command, replicas running now with the percentage of their stage, stages by condition, pace and hours left, output files by kind and size, result tables, free disk |
-| Condition | one cell per replica, coloured and lettered by state |
-| Replica | stages with time and ns/day, composition, events, files, and a bead viewer of the latest frame |
-| Peptides | descriptors from `results/peptides.csv` |
+| Menu | one entry per peptide, the control, and the two tables |
+| Peptide | descriptors, then one section per round: replicas assembled, one bead per replica coloured by state, potential energy of every replica during assembly with the mean, starting box |
+| Replica | bead viewer of the latest frame, box values, potential energy, temperature and pressure over all stages, stages with time and ns/day, composition, events, files |
+| Descriptors | `results/peptides.csv` |
 | Events | the campaign log, newest first |
+
+A round is one condition: one peptide in one starting oligomeric state in one membrane. Its name states the content of the box at time zero: `6 monomers`, `1 hexamer`, `2 dimers + 2 monomers`, `lipids only`. `shaker plan`, `shaker status` and `results/conditions.csv` carry the same name in the column `round`.
+
+The page re-reads the campaign every 3 s. Energy curves come from the GROMACS logs.
 
 | Replica state | Meaning |
 |---|---|

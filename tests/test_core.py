@@ -198,3 +198,85 @@ def test_invalid_spec_is_rejected(mag2, tmp_path):
         build_system(SystemSpec(lipids={}), seed=1, outdir=tmp_path)
     with pytest.raises(ValueError):
         build_system(SystemSpec(lipids={"POPE": 8}, copies=2), seed=1, outdir=tmp_path)
+
+
+# mdp.yaml: one file for every run parameter, and the periodicity of the box ------------------
+
+def _mdp_settings(tmp_path, text=None, legacy=None):
+    from shaker import mdp
+
+    if text is not None:
+        (tmp_path / mdp.FILE_NAME).write_text(text)
+    return mdp.load(tmp_path, legacy)
+
+
+def test_mdp_defaults_without_a_file(tmp_path):
+    from shaker import mdp
+
+    settings = _mdp_settings(tmp_path)
+    assert settings["periodicity"] == "xyz" and settings["assembly_ns"] == 400
+    text = mdp.md_text(settings, 0.02, 100, True, 7)
+    assert "pbc                      = xyz" in text and "nwall" not in text
+    assert "gen-seed                 = 7" in text and "ref-t                    = 310" in text
+
+
+def test_mdp_example_is_the_default_protocol(tmp_path):
+    from shaker import mdp
+
+    def text(options):  # YAML reads 3e-4 as text; the .mdp gets the same characters either way
+        return {section: {k: str(v) for k, v in block.items()} for section, block in options.items()}
+
+    assert text(_mdp_settings(tmp_path, mdp.EXAMPLE)["mdp"]) == text(mdp.MDP_DEFAULTS)
+
+
+def test_mdp_file_overrides_options_and_closes_z(tmp_path):
+    from shaker import mdp
+
+    settings = _mdp_settings(tmp_path, "periodicity: xy\nmd:\n  tau_p: 12\nschedule:\n  temperature: 300\n")
+    text = mdp.md_text(settings, 0.02, 100, False, 7)
+    assert "pbc                      = xy\n" in text and "nwall                    = 2" in text
+    assert "wall-atomtype            = W W" in text
+    assert "tau-p                    = 12" in text and "ref-t                    = 300" in text
+    assert "nwall                    = 2" in mdp.em_text(settings)
+
+
+@pytest.mark.parametrize("text, word", [
+    ("periodicity: z\n", "periodicity"),
+    ("md:\n  dt: 0.03\n", "written by shaker"),
+    ("common:\n  pbc: xy\n", "written by shaker"),
+    ("walls:\n  type: 9-3\n", "density"),
+    ("schedule:\n  temperature: 300\n", "different values"),
+    ("extra: 1\n", "unknown key"),
+])
+def test_mdp_file_errors_name_the_key(tmp_path, text, word):
+    from shaker import mdp
+
+    with pytest.raises(mdp.MdpError, match=word):
+        _mdp_settings(tmp_path, text, legacy={"temperature": 310})
+
+
+def test_placer_keeps_molecules_between_the_walls():
+    from shaker.builder.placer import Placer
+
+    rng = np.random.default_rng(3)
+    box = np.array([4.0, 4.0, 4.0])
+    rod = np.column_stack([np.zeros(5), np.zeros(5), np.linspace(-0.8, 0.8, 5)])
+    placer = Placer(box, 0.35, rng, open_z=True, margin=0.3)
+    placed = np.concatenate([placer.insert(rod) for _ in range(40)])
+    assert placed[:, 2].min() >= 0.3 and placed[:, 2].max() <= 3.7
+    # two beads at opposite faces are far apart in an open box, neighbours in a periodic one
+    low, high = np.array([[1.0, 1.0, 0.31]]), np.array([[1.0, 1.0, 3.69]])
+    for open_z, clash in ((True, False), (False, True)):
+        p = Placer(box, 0.9, rng, open_z=open_z, margin=0.3)
+        p._commit(low)
+        assert p._overlaps(high) is clash
+
+
+def test_solvent_sites_stay_between_the_walls():
+    from shaker.builder.solvent import free_sites
+
+    rng = np.random.default_rng(5)
+    box = np.array([3.0, 3.0, 3.0])
+    sites, _ = free_sites(box, np.empty((0, 3)), 200, rng, open_z=True, margin=0.3)
+    assert sites[:, 2].min() >= 0.3 and sites[:, 2].max() <= 2.7
+    assert sites[:, 0].min() >= 0.0 and sites[:, 0].max() < 3.0
