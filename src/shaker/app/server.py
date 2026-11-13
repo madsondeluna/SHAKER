@@ -1,7 +1,8 @@
 """Local interface: a small HTTP server that reads a campaign directory as it is, on every call.
 
-Nothing is cached and nothing is written. The page polls, so what it shows is what is on disk
-now. It binds to 127.0.0.1 unless told otherwise, and every path it opens is built from a
+Nothing is written. The page polls, so what it shows is what is on disk now; the only things
+kept in memory are the file inventory and the energy series of a log, reused while the log's
+size and modification time stay the same. It binds to 127.0.0.1 unless told otherwise, and every path it opens is built from a
 condition id and a replica index that were checked against the campaign first.
 """
 
@@ -45,6 +46,32 @@ OUTPUT_KINDS = (                  # (label, test on the file name), first match 
 )
 
 
+SERIES_POINTS = 240               # a curve is thinned to this many points before it is sent
+SERIES_KEYS = {"Potential": "potential", "Temperature": "temperature", "Pressure (bar)": "pressure"}
+LOG_BLOCK = re.compile(
+    r"^ +Step +Time\n +\d+ +([0-9.eE+-]+)\n\n +Energies \(kJ/mol\)\n((?:[^\n]+\n)+)", re.M)
+LOG_FIELD = 15                    # mdrun prints energy names and values in columns this wide
+
+
+def read_log_series(path: Path, points: int = SERIES_POINTS) -> dict:
+    """Time (ps) and the energies in SERIES_KEYS, from the blocks mdrun writes to its log."""
+    out = {"time": [], **{name: [] for name in SERIES_KEYS.values()}}
+    for match in LOG_BLOCK.finditer(path.read_text(errors="replace")):
+        lines = match.group(2).splitlines()
+        values = {}
+        for header, numbers in zip(lines[0::2], lines[1::2]):
+            names = [header[i:i + LOG_FIELD].strip() for i in range(0, len(header), LOG_FIELD)]
+            values.update(zip(names, numbers.split()))
+        try:
+            row = [float(match.group(1))] + [float(values[key]) for key in SERIES_KEYS]
+        except (KeyError, ValueError):
+            continue                  # minimization blocks carry no temperature: not a time series
+        for column, value in zip(out.values(), row):
+            column.append(value)
+    stride = max(1, -(-len(out["time"]) // points))
+    return {name: column[::stride] for name, column in out.items()}
+
+
 class ApiError(Exception):
     def __init__(self, status, message):
         super().__init__(message)
@@ -76,6 +103,7 @@ class Reader:
         self.config_path = Path(config_path)
         self.library = LipidLibrary.load()
         self._outputs = (0.0, None)
+        self._series = {}
 
     def campaign(self):
         try:
@@ -262,6 +290,48 @@ class Reader:
             "outputs": self._output_inventory(campaign),
         }
 
+    def _log_series(self, path: Path):
+        stat = path.stat()
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        cached = self._series.get(path)
+        if cached is None or cached[0] != stamp:
+            cached = (stamp, read_log_series(path))
+            self._series[path] = cached
+        return cached[1]
+
+    def series(self, condition_id, replica):
+        """Energies of one replica, stage by stage, with time running on from one stage to the next."""
+        campaign = self.campaign()
+        _, index, directory = self._replica_dir(campaign, condition_id, replica)
+        stages, offset = [], 0.0
+        for stage in stage_names(campaign.simulation):
+            log = directory / f"{stage}.log"
+            if not log.exists():
+                continue
+            data = self._log_series(log)
+            if not data["time"]:
+                continue
+            stages.append({"stage": stage, **data, "time": [offset + t for t in data["time"]]})
+            offset += data["time"][-1]
+        return {"replica": index, "stages": stages}
+
+    def round_series(self, condition_id):
+        """Potential energy of every replica of a round during its last stage, one curve each."""
+        campaign = self.campaign()
+        condition, _, _ = self._replica_dir(campaign, condition_id, 0)
+        last = stage_names(campaign.simulation)[-1]
+        replicas = []
+        for index in range(campaign.replicas):
+            directory = ops.replica_dir(campaign, condition, index)
+            log = directory / f"{last}.log"
+            if not log.exists():
+                continue
+            data = self._log_series(log)
+            if data["time"]:
+                replicas.append({"replica": index, "finished": (directory / f"{last}.gro").exists(),
+                                 "time": data["time"], "potential": data["potential"]})
+        return {"condition": condition_id, "stage": last, "replicas": replicas}
+
     def peptides(self):
         campaign = self.campaign()
         table = campaign.root / "results" / "peptides.csv"
@@ -301,6 +371,10 @@ def make_handler(reader: Reader):
                     return self._json(reader.replica(query.get("condition"), query.get("replica")))
                 if url.path == "/api/structure":
                     return self._json(reader.structure(query.get("condition"), query.get("replica")))
+                if url.path == "/api/series":
+                    return self._json(reader.series(query.get("condition"), query.get("replica")))
+                if url.path == "/api/round_series":
+                    return self._json(reader.round_series(query.get("condition")))
                 if url.path == "/api/progress":
                     return self._json(reader.progress())
                 if url.path == "/api/peptides":

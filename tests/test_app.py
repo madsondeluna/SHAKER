@@ -95,3 +95,33 @@ def test_progress_reports_steps_and_outputs(campaign):
     assert kinds["Starting boxes"] == 3 and kinds["Records"] == 3
     assert any(t["name"] == "peptides.csv" for t in data["outputs"]["tables"])
     assert all(row["built"] == 1 and row["em"] == 0 for row in data["conditions"])
+
+
+LOG_BLOCK = """           Step           Time
+{step:>15d}{time:>15.5f}
+
+   Energies (kJ/mol)
+           Bond      Potential    Kinetic En.
+    2.01253e+03{potential:>15.5e}    1.41915e+04
+    Temperature Pressure (bar)   Constr. rmsd
+    3.07456e+02   -1.76670e+01    7.04073e-06
+
+"""
+
+
+def test_series_read_the_run_logs(campaign, tmp_path):
+    overview = json.loads(get(campaign + "/api/overview")[2])
+    condition, last = overview["conditions"][0]["id"], overview["stages"][-1]
+    query = f"condition={condition}&replica=0"
+    assert json.loads(get(f"{campaign}/api/series?{query}")[2])["stages"] == []
+    log = tmp_path / "conditions" / condition / "rep_000" / f"{last}.log"
+    log.write_text("header\n\n" + "".join(
+        LOG_BLOCK.format(step=500 * i, time=10.0 * i, potential=-7.0e4 - i) for i in range(5)))
+    stage = json.loads(get(f"{campaign}/api/series?{query}")[2])["stages"][0]
+    assert stage["stage"] == last and stage["time"] == [0.0, 10.0, 20.0, 30.0, 40.0]
+    assert stage["potential"][-1] == -70004.0 and stage["temperature"][0] == 307.456
+    curves = json.loads(get(f"{campaign}/api/round_series?condition={condition}")[2])
+    assert [r["replica"] for r in curves["replicas"]] == [0] and curves["replicas"][0]["finished"] is False
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        get(f"{campaign}/api/round_series?condition=nope")
+    assert refused.value.code == 404
