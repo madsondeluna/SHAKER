@@ -332,7 +332,7 @@ Memory use and GPU throughput were not measured. No simulation was run long enou
 | `src/shaker/engine/` | GROMACS stages, SLURM job array |
 | `src/shaker/forcefield/martini3/` | Martini 3 files with checksums |
 | `src/shaker/mdp/` | run parameter templates |
-| `src/shaker/ui.py`, `brand.py`, `quotes.yaml` | terminal output, palette, glass, quotes |
+| `src/shaker/ui.py`, `brand.py`, `quotes.yaml` | terminal output, palette, shaker mark, quotes |
 | `tests/` | 63 tests |
 | `docs/` | background notes |
 | `assets/logo/` | logo and mark (SVG and PNG, light and dark), source illustration, build scripts |

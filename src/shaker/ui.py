@@ -117,23 +117,23 @@ env = _detect()
 # Theme: roles -> Rich styles, tiered by color depth (see references/palette.md)
 # ---------------------------------------------------------------------------
 
-# SHAKER palette: warm. Amber to orange to coral to rose, on warm greys.
-_DARK = dict(fg="#F2ECE6", muted="#A69B92", dim="#6E645C", accent="#FF9F5A",
-             accent2="#FF7EB6", teal="#FFC857", ok="#8FD98A", warn="#F2C56B",
-             err="#FF6B7A", info="#FFB38A", border="#4D423B")
-_LIGHT = dict(fg="#2A211B", muted="#6B625A", dim="#978C83", accent="#C2410C",
-              accent2="#BE185D", teal="#B45309", ok="#1B7A3E", warn="#8A5A00",
-              err="#C4283A", info="#9A3412", border="#E2D8CF")
-_C256 = dict(fg="default", muted="color(245)", dim="color(240)", accent="color(209)",
-             accent2="color(205)", teal="color(221)", ok="color(114)", warn="color(221)",
-             err="color(203)", info="color(216)", border="color(238)")
+# SHAKER palette: warm and quiet. Sand, apricot and dusty rose on warm greys; nothing saturated.
+_DARK = dict(fg="#E8E2DB", muted="#9C928A", dim="#6A615A", accent="#D9A887",
+             accent2="#C9A0B0", teal="#CDBB8A", ok="#A3BF9B", warn="#D2BE86",
+             err="#D98C8C", info="#B5A396", border="#3F3732")
+_LIGHT = dict(fg="#2A211B", muted="#6B625A", dim="#978C83", accent="#A8674A",
+              accent2="#9C5A74", teal="#8F7440", ok="#4F7A52", warn="#8A6E2F",
+              err="#A84A4A", info="#8A6654", border="#E2D8CF")
+_C256 = dict(fg="default", muted="color(245)", dim="color(240)", accent="color(180)",
+             accent2="color(181)", teal="color(186)", ok="color(151)", warn="color(186)",
+             err="color(174)", info="color(181)", border="color(238)")
 _C16 = dict(fg="default", muted="bright_black", dim="bright_black", accent="yellow",
             accent2="magenta", teal="yellow", ok="green", warn="yellow", err="red",
             info="magenta", border="bright_black")
 
-GRADIENT_DARK = ["#FFD166", "#FF9F43", "#FF6B6B", "#F0568C", "#D455B0"]
-GRADIENT_LIGHT = ["#B45309", "#C2410C", "#DC2626", "#BE185D", "#9D174D"]
-GRADIENT_256 = ["color(221)", "color(215)", "color(209)", "color(204)", "color(169)"]
+GRADIENT_DARK = ["#E3CFA0", "#E0B090", "#D9A3A0", "#CFA0B5", "#BFA3C4"]
+GRADIENT_LIGHT = ["#9A7B3C", "#A8674A", "#A85656", "#9C5A74", "#85608A"]
+GRADIENT_256 = ["color(186)", "color(180)", "color(174)", "color(181)", "color(182)"]
 
 
 def _roles() -> dict[str, str]:
@@ -146,8 +146,8 @@ def _roles() -> dict[str, str]:
 
 theme = _roles()
 _rich_theme = Theme({k: v for k, v in theme.items()} | {
-    "ok": f"bold {theme['ok']}", "err": f"bold {theme['err']}",
-    "warn": f"bold {theme['warn']}", "accent": f"bold {theme['accent']}",
+    "ok": theme["ok"], "err": f"bold {theme['err']}",
+    "warn": theme["warn"], "accent": theme["accent"],
     "progress.percentage": theme["muted"], "progress.remaining": theme["muted"],
     "bar.complete": theme["accent"], "bar.finished": theme["ok"], "bar.pulse": theme["accent2"],
 })

@@ -1,36 +1,38 @@
-"""SHAKER's own marks on top of the vendored ui module: the glass, the slogan, the bar vocabulary."""
+"""SHAKER's own marks on top of the vendored ui module: the shaker, the slogan, the bar vocabulary."""
 
 SLOGAN = "Shaken chaos. Self-served order."
 TAGLINE = "reproducible Martini 3 self-assembly ensembles that reveal how AMPs act"
 
-# A martini glass with an olive on a pick, six rows tall to stand beside the block letters.
-_GLASS = (
-    "\u2572        \u2571    \u2571",
-    "  \u2572~~~~~\u25cf~~~\u2571  ",
-    "    \u2572     \u2571    ",
-    "      \u2572 \u2571      ",
-    "       \u2502       ",
-    "     \u2500\u2500\u2534\u2500\u2500     ",
+# A cobbler shaker as a solid silhouette (cap, strainer, tapered tin), built from the same block
+# characters as the letters and six rows tall to stand beside them.
+_SHAKER = (
+    "   \u2584\u2584   ",
+    "  \u259f\u2588\u2588\u2599  ",
+    " \u2588\u2588\u2588\u2588\u2588\u2588 ",
+    " \u2588\u2588\u2588\u2588\u2588\u2588 ",
+    " \u2590\u2588\u2588\u2588\u2588\u258c ",
+    "  \u2588\u2588\u2588\u2588  ",
 )
-_ASCII = str.maketrans({"\u2572": "\\", "\u2571": "/", "\u2502": "|", "\u2500": "-",
-                        "\u2534": "+", "\u25cf": "o"})
+_SHAKER_ASCII = (
+    "   ..   ",
+    "  .##.  ",
+    " ###### ",
+    " ###### ",
+    " |####| ",
+    "  ####  ",
+)
+_CAP_ROWS = 2  # the cap and the strainer take the second colour
 
 
-def glass(unicode: bool = True) -> tuple:
-    """The glass, in box-drawing characters or plain ASCII."""
-    return _GLASS if unicode else tuple(row.translate(_ASCII) for row in _GLASS)
+def mark(unicode: bool = True) -> tuple:
+    """The shaker, in block characters or plain ASCII."""
+    return _SHAKER if unicode else _SHAKER_ASCII
 
 
-# The pick and the olive, as (row, column) cells of the glass.
-_PICK = {(0, 9), (1, 8)}
-
-
-def glass_colours(glass_colour: str, pick_colour: str) -> dict:
-    """Colour of every drawn cell: the glass in one colour, pick and olive in another."""
-    return {
-        (r, c): pick_colour if (r, c) in _PICK else glass_colour
-        for r, row in enumerate(_GLASS) for c, char in enumerate(row) if char != " "
-    }
+def mark_colours(cap_colour: str) -> dict:
+    """Colour of the cap and strainer; the tin keeps the gradient of the letters."""
+    return {(r, c): cap_colour
+            for r, row in enumerate(_SHAKER[:_CAP_ROWS]) for c, char in enumerate(row) if char != " "}
 
 
 # What each stage is called once it is done.

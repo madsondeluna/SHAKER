@@ -374,9 +374,9 @@ def _finish(args, stage, summary):
 
 
 def _splash():
-    """Bare `shaker` on a terminal: the glass beside the name, then the help."""
-    ui.banner("SHAKER", mark=brand.glass(ui.env.unicode), rule=False,
-              mark_colours=brand.glass_colours(ui.theme["accent2"], ui.theme["teal"]))
+    """Bare `shaker` on a terminal: the shaker beside the name, then the help."""
+    ui.banner("SHAKER", mark=brand.mark(ui.env.unicode), rule=False,
+              mark_colours=brand.mark_colours(ui.theme["muted"]))
     ui.err.print()
     _print_help()
 
@@ -393,48 +393,44 @@ def _help_plain() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _section(title, body):
+    """A titled block of the help: a quiet label, the content indented under it, no frame."""
+    from rich.padding import Padding
+    from rich.text import Text
+
+    ui.console.print()
+    ui.console.print(Text(title, style="muted"))
+    ui.console.print(Padding(body, (0, 0, 0, 2)))
+
+
 def _print_help():
-    """Help on stdout: panels on a terminal, aligned plain text anywhere else."""
+    """Help on stdout: a short list of commands on a terminal, full plain text anywhere else."""
     if not ui.env.stdout_tty:
         sys.stdout.write(_help_plain())
         return
     from rich.table import Table
     from rich.text import Text
 
-    def grid(*widths):
+    def grid():
         table = Table.grid(padding=(0, 2))
-        for width in widths:
-            table.add_column(no_wrap=True, min_width=width)
+        table.add_column(no_wrap=True, min_width=1)
+        table.add_column(no_wrap=True, min_width=28)
+        table.add_column()
         return table
 
     out = ui.console
     out.print(Text(TAGLINE, style="muted"))
-    out.print()
-    out.print(Text.assemble(("usage  ", "muted"), "shaker ", ("<command>", "accent2"),
-                            (" [options]", "muted")))
-
-    steps = grid(1, 28, 0)
+    steps = grid()
     for i, (name, text) in enumerate(WORKFLOW, start=1):
         steps.add_row(Text(str(i), style="dim"), Text(name, style="accent"),
                       Text(text, style="muted"))
-    out.print(ui.panel(steps, "workflow"))
-
-    inspect = grid(1, 28, 0)
+    _section("workflow", steps)
+    inspect = grid()
     for name, text in INSPECT:
-        inspect.add_row(Text(ui.G["info"], style="dim"), Text(name, style="accent"),
-                        Text(text, style="muted"))
-    out.print(ui.panel(inspect, "inspect"))
-
-    examples = grid(1, 0)
-    for example in HELP_EXAMPLES:
-        examples.add_row(Text(ui.G["pointer"], style="accent2"), Text(example, style="fg"))
-    out.print(ui.panel(examples, "examples"))
-
-    options = grid(19, 0, 0)
-    for flag, text, default in HELP_OPTIONS:
-        options.add_row(Text(flag, style="accent2"), Text(text, style="fg"),
-                        Text(default, style="dim"))
-    out.print(ui.panel(options, "options"))
+        inspect.add_row(Text(" "), Text(name, style="accent"), Text(text, style="muted"))
+    _section("inspect", inspect)
+    out.print()
+    out.print(Text.assemble(("options and examples  ", "muted"), ("shaker <command> --help", "fg")))
 
 
 def _print_command_help(parser):
@@ -448,22 +444,15 @@ def _print_command_help(parser):
     prog, summary, examples = parser.shaker_help
     out = ui.console
     usage = parser.usage[len(prog):].strip()
-    out.print(Text.assemble(("usage  ", "muted"), (prog, "accent"), " ", (usage, "muted")))
-    out.print(Text(f"       {summary}", style="fg"))
-
-    rows = Table.grid(padding=(0, 2))
-    rows.add_column(no_wrap=True)
-    rows.add_column(no_wrap=True)
-    for example in examples:
-        rows.add_row(Text(ui.G["pointer"], style="accent2"), Text(example, style="fg"))
-    out.print(ui.panel(rows, "examples"))
+    out.print(Text.assemble((prog, "accent"), " ", (usage, "muted")))
+    out.print(Text(summary, style="fg"))
 
     def flag(action):
         if not action.option_strings:
             return action.metavar or action.dest
         short = [o for o in action.option_strings if not o.startswith("--")]
         long = [o for o in action.option_strings if o.startswith("--")]
-        text = (f"{short[0]}, " if short else "    ") + (long[0] if long else "")
+        text = (f"{short[0]}, " if short else "") + (long[0] if long else "")
         return text + (f" {action.metavar}" if action.metavar and action.nargs != 0 else "")
 
     general = {"config", "json", "plain", "quiet", "no_quotes", "color", "version", "help"}
@@ -475,24 +464,19 @@ def _print_command_help(parser):
         grid.add_column(no_wrap=True, min_width=24)
         grid.add_column()
         for action in actions:
-            grid.add_row(Text(flag(action), style="accent2"), Text(action.help or "", style="fg"))
+            grid.add_row(Text(flag(action), style="accent"), Text(action.help or "", style="muted"))
         for sub in subs:
             for choice in sub._choices_actions:
-                grid.add_row(Text(choice.dest, style="accent"), Text(choice.help or "", style="fg"))
+                grid.add_row(Text(choice.dest, style="accent"), Text(choice.help or "", style="muted"))
         if actions or subs:
             title = "actions" if subs and not actions else \
                 group.title if group.title not in ("options", "positional arguments") else \
                 "arguments" if group.title == "positional arguments" else "options"
-            out.print(ui.panel(grid, title))
+            _section(title, grid)
 
-    options = Table.grid(padding=(0, 2))
-    options.add_column(no_wrap=True, min_width=24)
-    options.add_column()
-    options.add_column()
-    for name, text, default in HELP_OPTIONS:
-        options.add_row(Text(name, style="accent2"), Text(text, style="muted"),
-                        Text(default, style="dim"))
-    out.print(ui.panel(options, "general options"))
+    _section("examples", Text("\n".join(examples), style="fg"))
+    _section("everywhere", Text("--config <path>  --json  --plain  --quiet  --no-quotes  --color <when>",
+                                style="dim"))
 
 
 # commands -----------------------------------------------------------------------------------
