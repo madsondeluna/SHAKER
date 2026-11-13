@@ -89,18 +89,11 @@ After editing the source, reinstall with `uv pip install --python .venv/bin/pyth
 
 ## Pipeline
 
-```mermaid
-flowchart LR
-    config[config.yaml] --> plan
-    config --> prepare
-    prepare -->|helix.pdb, cg.pdb, itp| build
-    config --> build
-    build -->|box.gro, topol.top, manifest.json| run
-    run --> analyze
-    analyze --> results[results tables]
-    check -.->|blocks on version drift| build
-    check -.-> run
-```
+<p align="center">
+  <img src="docs/pipeline.png" alt="Pipeline: inputs, the five commands in order, what each writes to the campaign directory, and the commands that read it" width="900">
+</p>
+
+Source: [docs/pipeline.drawio](docs/pipeline.drawio).
 
 ## Commands
 
