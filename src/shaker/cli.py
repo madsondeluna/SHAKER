@@ -63,10 +63,6 @@ HELP_OPTIONS = [
     ("-h, --help", "show help", ""),
     ("-V, --version", "show version", ""),
 ]
-HELP_ENVIRONMENT = "SHAKER_CONFIG  SHAKER_NO_QUOTES  SHAKER_NO_ANIMATION  NO_COLOR"
-EXIT_CODES = [("0", "ok"), ("1", "failure"), ("2", "usage"), ("3", "config"),
-              ("130", "interrupted")]
-HELP_FOOTER = "Run `shaker <command> --help` for the options of one command."
 
 
 KNOWN_FLAGS = set()  # every option string of every command, for "did you mean"
@@ -394,9 +390,6 @@ def _help_plain() -> str:
     lines += ["", "Options"]
     for flag, text, default in HELP_OPTIONS:
         lines.append(f"  {flag:<21}{text}" + (f"  (default: {default})" if default else ""))
-    lines += ["", "Environment", f"  {HELP_ENVIRONMENT}", "", "Exit codes",
-              "  " + "   ".join(f"{code} {meaning}" for code, meaning in EXIT_CODES),
-              "", HELP_FOOTER]
     return "\n".join(lines) + "\n"
 
 
@@ -442,14 +435,6 @@ def _print_help():
         options.add_row(Text(flag, style="accent2"), Text(text, style="fg"),
                         Text(default, style="dim"))
     out.print(ui.panel(options, "options"))
-
-    out.print(Text.assemble(("env    ", "muted"), (HELP_ENVIRONMENT, "dim")))
-    codes = Text.assemble(("exit   ", "muted"))
-    for code, meaning in EXIT_CODES:
-        codes.append(code, style="accent2")
-        codes.append(f" {meaning}   ", style="dim")
-    out.print(codes)
-    out.print(Text(HELP_FOOTER, style="muted"))
 
 
 def _print_command_help(parser):
